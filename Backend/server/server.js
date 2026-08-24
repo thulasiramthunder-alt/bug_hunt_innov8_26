@@ -144,10 +144,23 @@ async function getTeamState(teamId) {
 // ======================================================
 app.get('/api/health', async (req, res) => {
   try {
-    await pool.query('SELECT 1');
-    res.json({ ok: true, app: "INNOV8'26 CODEMERCE", database: 'connected' });
+    const [[dbNameRow]] = await pool.query('SELECT DATABASE() AS db');
+    res.json({
+      ok: true,
+      app: "INNOV8'26 CODEMERCE",
+      database: 'connected',
+      host: process.env.DB_HOST,
+      dbName: dbNameRow ? dbNameRow.db : null,
+      user: process.env.DB_USER,
+      port: process.env.DB_PORT
+    });
   } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER
+    });
   }
 });
 
