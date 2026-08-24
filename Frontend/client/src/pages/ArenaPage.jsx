@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -30,6 +30,7 @@ export default function ArenaPage() {
   const [started, setStarted] = useState(false);
   const [violations, setViolations] = useState(0);
   const [loading, setLoading] = useState(true);
+  const outputRef = useRef(null);
 
   const language = team?.selected_language || 'python';
   const level = levelLabel(Number(team?.current_question_order || 1));
@@ -90,6 +91,10 @@ export default function ArenaPage() {
     monitor.init();
     return () => monitor.destroy();
   }, [started]);
+
+  useEffect(() => {
+    if (result) outputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [result]);
 
   const startDebugging = async () => {
     try {
@@ -219,7 +224,7 @@ export default function ArenaPage() {
 
             {question && <Editor
               className="editor"
-              height="48vh"
+              height="min(48vh, 520px)"
               language={language === 'c' ? 'c' : language}
               theme="vs-dark"
               value={code}
@@ -227,7 +232,7 @@ export default function ArenaPage() {
               options={{ minimap: { enabled: false }, fontSize: 14, automaticLayout: true, wordWrap: 'on', scrollBeyondLastLine: false }}
             />}
 
-            <div className="console">
+            <div className="console" ref={outputRef}>
               <div className="console-head"><span>JUDGE OUTPUT</span><span>{result?.compilationStatus || 'WAITING FOR SUBMISSION'}</span></div>
               <pre className="judge-output">{result?.output || (result?.compilationStatus === 'compile_error' ? result.compilerOutput : '') || 'Submit the fixed program to compile, execute and score it.'}</pre>
               {result && <div className={`result ${result.correct ? 'ok' : 'bad'}`}>

@@ -566,7 +566,13 @@ async function executeCode(language, code, input, runnerCode = '') {
 
     const sourceFile = path.join(tempDir, 'main.py');
     await fs.promises.writeFile(sourceFile, source, 'utf8');
-    const run = await runProcess(process.env.PYTHON_COMMAND || 'python3', [sourceFile], input, tempDir);
+    const configuredPython = process.env.PYTHON_COMMAND;
+    const pythonCommand = configuredPython || (process.platform === 'win32' ? 'py' : 'python3');
+    const pythonArgs = configuredPython || process.platform !== 'win32' ? [sourceFile] : ['-3', sourceFile];
+    let run = await runProcess(pythonCommand, pythonArgs, input, tempDir);
+    if (!configuredPython && process.platform === 'win32' && run.code === -1) {
+      run = await runProcess('python', [sourceFile], input, tempDir);
+    }
     if (run.timedOut) return { status:'runtime_error', output:run.stdout, compilerOutput:'Execution timed out.', executionTimeMs:Date.now()-started };
     if (run.code !== 0) return { status:'compile_error', output:run.stdout, compilerOutput:run.stderr, executionTimeMs:Date.now()-started };
     return { status:'compiled', output:run.stdout, compilerOutput:run.stderr, executionTimeMs:Date.now()-started };
@@ -665,6 +671,7 @@ app.post('/api/submissions', requireRole('team'), async (req, res) => {
       status: finalStatus,
       compilationStatus: result.status,
       output: result.output || '',
+      compilerOutput: result.compilerOutput || '',
       expectedOutput: question.expected_output,
       currentLevel: levelFromOrder(newOrder),
       unlockedNext: correct,

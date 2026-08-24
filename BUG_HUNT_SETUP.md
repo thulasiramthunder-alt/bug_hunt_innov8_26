@@ -30,7 +30,7 @@ The backend executes submissions with:
 
 - C: `gcc`
 - Java: `javac` + `java`
-- Python: `python3` (override with `PYTHON_COMMAND` if required)
+- Python: Windows `py -3`, otherwise `python3` (override with `PYTHON_COMMAND` if required)
 
 For production deployment, run the compiler/executor in an isolated container or sandbox. The current implementation keeps the project dependency-free and applies a process timeout/output limit, but arbitrary code execution should not share a privileged production host.
 
