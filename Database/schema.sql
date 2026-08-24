@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS submissions (
   code LONGTEXT NOT NULL,
   output TEXT NULL,
   score INT NOT NULL DEFAULT 0,
-  status ENUM('submitted','correct','wrong','compile_error','debug_pass') NOT NULL DEFAULT 'submitted',
+  status ENUM('submitted','correct','wrong','wrong_answer','compile_error','runtime_error','debug_pass') NOT NULL DEFAULT 'submitted',
   submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
   FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
