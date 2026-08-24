@@ -19,10 +19,10 @@ const EXEC_TIMEOUT_MS = Number(process.env.CODE_EXEC_TIMEOUT_MS || 5000);
 const EXEC_MAX_OUTPUT = Number(process.env.CODE_EXEC_MAX_OUTPUT || 1024 * 1024);
 const dbSsl = /^(require|true|1)$/i.test(process.env.DB_SSL || '')
   ? {
-      minVersion: process.env.DB_TLS_MIN_VERSION || 'TLSv1.2',
-      rejectUnauthorized: !/^(false|0)$/i.test(process.env.DB_SSL_REJECT_UNAUTHORIZED || 'true'),
-      ...(process.env.DB_SSL_CA ? { ca: process.env.DB_SSL_CA } : {})
-    }
+    minVersion: process.env.DB_TLS_MIN_VERSION || 'TLSv1.2',
+    rejectUnauthorized: !/^(false|0)$/i.test(process.env.DB_SSL_REJECT_UNAUTHORIZED || 'true'),
+    ...(process.env.DB_SSL_CA ? { ca: process.env.DB_SSL_CA } : {})
+  }
   : undefined;
 
 app.use(cors());
@@ -129,7 +129,7 @@ function sanitizeQuestion(row) {
 
 async function getTeamState(teamId) {
   const [rows] = await pool.execute(
-        `SELECT id, team_name, leader_name AS team_leader, leader_name, leader_batch, leader_email, department, year,
+    `SELECT id, team_name, leader_name AS team_leader, leader_name, leader_batch, leader_email, department, year,
           member1_name, member1_batch, member1_email, status, created_at,
             selected_language, assigned_set, current_question_order,
             debug_started_at, last_submission_at, last_compilation_status
@@ -258,7 +258,7 @@ app.post('/api/team/language', requireRole('team'), async (req, res) => {
     await conn.commit();
     res.json({ success: true, language, assignedSet });
   } catch (error) {
-    try { await conn.rollback(); } catch {}
+    try { await conn.rollback(); } catch { }
     res.status(error.statusCode || 500).json({ error: error.message || 'Unable to save language.' });
   } finally {
     conn.release();
@@ -309,7 +309,7 @@ app.get('/api/admin/teams', requireRole('admin'), async (req, res) => {
     if (department) { filters.push('t.department = ?'); filterValues.push(department); }
     if (year) { filters.push('t.year = ?'); filterValues.push(year); }
     const [rows] = await pool.execute(
-            `SELECT t.id, t.team_name, t.leader_name AS team_leader, t.leader_name, t.leader_batch, t.leader_email, t.department, t.year,
+      `SELECT t.id, t.team_name, t.leader_name AS team_leader, t.leader_name, t.leader_batch, t.leader_email, t.department, t.year,
               t.member1_name, t.member1_batch, t.member1_email, t.created_at, t.status,
               t.selected_language, t.assigned_set, t.current_question_order,
               CASE WHEN t.current_question_order <= 2 THEN 'Easy'
@@ -340,7 +340,7 @@ app.put('/api/admin/teams/:id/status', requireRole('admin'), async (req, res) =>
     const teamId = Number(req.params.id);
     const status = String(req.body.status || '');
     if (!Number.isInteger(teamId)) return res.status(400).json({ error: 'Invalid team ID.' });
-    if (!['pending','approved','rejected'].includes(status)) return res.status(400).json({ error: 'Invalid team status.' });
+    if (!['pending', 'approved', 'rejected'].includes(status)) return res.status(400).json({ error: 'Invalid team status.' });
     const [result] = await pool.execute('UPDATE teams SET status = ? WHERE id = ?', [status, teamId]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Team not found.' });
     if (status === 'approved') {
@@ -411,8 +411,8 @@ app.post('/api/admin/questions', requireRole('admin'), async (req, res) => {
     await pool.execute(
       `INSERT INTO questions(title,description,difficulty,language,question_set,question_order,points,starter_code,solution_code,test_input,expected_output,runner_code)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [String(title).trim(),String(description).trim(),String(difficulty).toLowerCase(),String(language).toLowerCase(),
-       Number(questionSet || 1),Number(questionOrder || 1),Math.max(1,Number(points || 1)),String(starterCode),String(solutionCode || ''),String(testInput || ''),String(expectedOutput || ''),String(runnerCode || '')]
+      [String(title).trim(), String(description).trim(), String(difficulty).toLowerCase(), String(language).toLowerCase(),
+      Number(questionSet || 1), Number(questionOrder || 1), Math.max(1, Number(points || 1)), String(starterCode), String(solutionCode || ''), String(testInput || ''), String(expectedOutput || ''), String(runnerCode || '')]
     );
     res.status(201).json({ success: true, message: 'Question created successfully.' });
   } catch (error) {
@@ -451,7 +451,7 @@ app.get('/api/leaderboard', async (req, res) => {
        WHERE t.status='approved'
        ORDER BY points DESC, penalty_seconds ASC, t.team_name ASC`
     );
-    res.json(rows.map((row,index) => ({ rank:index+1, ...row })));
+    res.json(rows.map((row, index) => ({ rank: index + 1, ...row })));
   } catch (error) {
     res.status(500).json({ error: 'Unable to load leaderboard.' });
   }
@@ -494,15 +494,15 @@ app.get('/api/questions', requireRole('team'), async (req, res) => {
 // ======================================================
 // COMPILER / RUNNER
 // ======================================================
-function runProcess(command, args, input, cwd, timeoutMs = EXEC_TIMEOUT_MS) {
+function runProcess(command, args, input, cwd, timeoutMs = EXEC_TIMEOUT_MS, extraEnv = {}) {
   return new Promise((resolve) => {
-    const child = spawn(command, args, { cwd, windowsHide: true });
+    const child = spawn(command, args, { cwd, windowsHide: true, env: { ...process.env, ...extraEnv } });
     let stdout = '';
     let stderr = '';
     let killed = false;
     let timer = setTimeout(() => {
       killed = true;
-      try { child.kill('SIGKILL'); } catch {}
+      try { child.kill('SIGKILL'); } catch { }
     }, timeoutMs);
 
     const append = (target, chunk) => {
@@ -531,7 +531,7 @@ async function executeCode(language, code, input, runnerCode = '') {
     let source = String(code || '');
     if (runnerCode) {
       if (language === 'java' && runnerCode.startsWith('__WRAP_JAVA__')) {
-        source = `class Main {\n${source}\n${runnerCode.replace('__WRAP_JAVA__','')}\n}\n`;
+        source = `class Main {\n${source}\n${runnerCode.replace('__WRAP_JAVA__', '')}\n}\n`;
       } else {
         source += `\n\n${runnerCode}\n`;
       }
@@ -541,27 +541,33 @@ async function executeCode(language, code, input, runnerCode = '') {
       const sourceFile = path.join(tempDir, 'main.c');
       const binary = path.join(tempDir, 'main.out');
       await fs.promises.writeFile(sourceFile, source, 'utf8');
-      const compile = await runProcess('gcc', ['-std=c11','-O2','-pipe','main.c','-o','main.out'], '', tempDir);
+      const gccCmd = process.env.GCC_COMMAND || 'gcc';
+      // Prepend mingw64/bin so gcc can find its runtime DLLs on Windows
+      const gccExtraPath = process.env.GCC_EXTRA_PATH || (process.platform === 'win32' ? 'C:\\msys64\\mingw64\\bin' : '');
+      const gccEnv = gccExtraPath ? { PATH: gccExtraPath + path.delimiter + (process.env.PATH || '') } : {};
+      const compile = await runProcess(gccCmd, ['-std=c11', '-O2', '-pipe', 'main.c', '-o', 'main.out'], '', tempDir, EXEC_TIMEOUT_MS, gccEnv);
       if (compile.code !== 0 || compile.timedOut) {
-        return { status:'compile_error', output:'', compilerOutput:compile.stderr || 'Compilation failed.', executionTimeMs:Date.now()-started };
+        return { status: 'compile_error', output: '', compilerOutput: compile.stderr || 'Compilation failed.', executionTimeMs: Date.now() - started };
       }
-      const run = await runProcess(binary, [], input, tempDir);
-      if (run.timedOut) return { status:'runtime_error', output:run.stdout, compilerOutput:'Execution timed out.', executionTimeMs:Date.now()-started };
-      if (run.code !== 0) return { status:'runtime_error', output:run.stdout, compilerOutput:run.stderr, executionTimeMs:Date.now()-started };
-      return { status:'compiled', output:run.stdout, compilerOutput:run.stderr, executionTimeMs:Date.now()-started };
+      const run = await runProcess(binary, [], input, tempDir, EXEC_TIMEOUT_MS, gccEnv);
+      if (run.timedOut) return { status: 'runtime_error', output: run.stdout, compilerOutput: 'Execution timed out.', executionTimeMs: Date.now() - started };
+      if (run.code !== 0) return { status: 'runtime_error', output: run.stdout, compilerOutput: run.stderr, executionTimeMs: Date.now() - started };
+      return { status: 'compiled', output: run.stdout, compilerOutput: run.stderr, executionTimeMs: Date.now() - started };
     }
 
     if (language === 'java') {
       const sourceFile = path.join(tempDir, 'Main.java');
       await fs.promises.writeFile(sourceFile, source, 'utf8');
-      const compile = await runProcess('javac', ['Main.java'], '', tempDir);
+      const javacCmd = process.env.JAVAC_COMMAND || 'javac';
+      const javaCmd = process.env.JAVA_COMMAND || 'java';
+      const compile = await runProcess(javacCmd, ['Main.java'], '', tempDir);
       if (compile.code !== 0 || compile.timedOut) {
-        return { status:'compile_error', output:'', compilerOutput:compile.stderr || 'Compilation failed.', executionTimeMs:Date.now()-started };
+        return { status: 'compile_error', output: '', compilerOutput: compile.stderr || 'Compilation failed.', executionTimeMs: Date.now() - started };
       }
-      const run = await runProcess('java', ['-cp', tempDir, 'Main'], input, tempDir);
-      if (run.timedOut) return { status:'runtime_error', output:run.stdout, compilerOutput:'Execution timed out.', executionTimeMs:Date.now()-started };
-      if (run.code !== 0) return { status:'runtime_error', output:run.stdout, compilerOutput:run.stderr, executionTimeMs:Date.now()-started };
-      return { status:'compiled', output:run.stdout, compilerOutput:run.stderr, executionTimeMs:Date.now()-started };
+      const run = await runProcess(javaCmd, ['-cp', tempDir, 'Main'], input, tempDir);
+      if (run.timedOut) return { status: 'runtime_error', output: run.stdout, compilerOutput: 'Execution timed out.', executionTimeMs: Date.now() - started };
+      if (run.code !== 0) return { status: 'runtime_error', output: run.stdout, compilerOutput: run.stderr, executionTimeMs: Date.now() - started };
+      return { status: 'compiled', output: run.stdout, compilerOutput: run.stderr, executionTimeMs: Date.now() - started };
     }
 
     const sourceFile = path.join(tempDir, 'main.py');
@@ -573,11 +579,11 @@ async function executeCode(language, code, input, runnerCode = '') {
     if (!configuredPython && process.platform === 'win32' && run.code === -1) {
       run = await runProcess('python', [sourceFile], input, tempDir);
     }
-    if (run.timedOut) return { status:'runtime_error', output:run.stdout, compilerOutput:'Execution timed out.', executionTimeMs:Date.now()-started };
-    if (run.code !== 0) return { status:'compile_error', output:run.stdout, compilerOutput:run.stderr, executionTimeMs:Date.now()-started };
-    return { status:'compiled', output:run.stdout, compilerOutput:run.stderr, executionTimeMs:Date.now()-started };
+    if (run.timedOut) return { status: 'runtime_error', output: run.stdout, compilerOutput: 'Execution timed out.', executionTimeMs: Date.now() - started };
+    if (run.code !== 0) return { status: 'compile_error', output: run.stdout, compilerOutput: run.stderr, executionTimeMs: Date.now() - started };
+    return { status: 'compiled', output: run.stdout, compilerOutput: run.stderr, executionTimeMs: Date.now() - started };
   } finally {
-    fs.promises.rm(tempDir, { recursive:true, force:true }).catch(() => {});
+    fs.promises.rm(tempDir, { recursive: true, force: true }).catch(() => { });
   }
 }
 
@@ -586,18 +592,18 @@ async function executeCode(language, code, input, runnerCode = '') {
 // ======================================================
 app.post('/api/submissions', requireRole('team'), async (req, res) => {
   const { questionId, language, code } = req.body;
-  if (!validLanguage(language) || !code || !questionId) return res.status(400).json({ error:'Question, language and code are required.' });
+  if (!validLanguage(language) || !code || !questionId) return res.status(400).json({ error: 'Question, language and code are required.' });
   const qid = Number(questionId);
-  if (!Number.isInteger(qid)) return res.status(400).json({ error:'Invalid question ID.' });
+  if (!Number.isInteger(qid)) return res.status(400).json({ error: 'Invalid question ID.' });
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
     const [teamRows] = await conn.execute(`SELECT * FROM teams WHERE id=? FOR UPDATE`, [req.auth.id]);
-    if (!teamRows.length) throw Object.assign(new Error('Team not found.'), { statusCode:404 });
+    if (!teamRows.length) throw Object.assign(new Error('Team not found.'), { statusCode: 404 });
     const team = teamRows[0];
-    if (team.status !== 'approved') throw Object.assign(new Error('Your team is not approved.'), { statusCode:403 });
-    if (!team.selected_language || team.selected_language !== String(language).toLowerCase()) throw Object.assign(new Error('Language does not match the locked team language.'), { statusCode:409 });
+    if (team.status !== 'approved') throw Object.assign(new Error('Your team is not approved.'), { statusCode: 403 });
+    if (!team.selected_language || team.selected_language !== String(language).toLowerCase()) throw Object.assign(new Error('Language does not match the locked team language.'), { statusCode: 409 });
 
     const order = Number(team.current_question_order || 1);
     const expectedSet = order <= 6 ? Number(team.assigned_set) : 0;
@@ -606,7 +612,7 @@ app.post('/api/submissions', requireRole('team'), async (req, res) => {
        FROM questions WHERE id=? AND language=? AND question_set=? AND question_order=? LIMIT 1`,
       [qid, String(language).toLowerCase(), expectedSet, order]
     );
-    if (!qRows.length) throw Object.assign(new Error('This question is not unlocked.'), { statusCode:409 });
+    if (!qRows.length) throw Object.assign(new Error('This question is not unlocked.'), { statusCode: 409 });
     const question = qRows[0];
 
     await conn.commit();
@@ -629,7 +635,7 @@ app.post('/api/submissions', requireRole('team'), async (req, res) => {
       await conn2.execute(
         `INSERT INTO submissions(team_id,question_id,language,code,output,score,status,compilation_status,execution_time_ms,compiler_output,submitted_at)
          VALUES (?,?,?,?,?,?,?,?,?,?,NOW())`,
-        [req.auth.id,qid,String(language).toLowerCase(),String(code),String(result.output || ''),score,finalStatus,result.status,result.executionTimeMs,result.compilerOutput || null]
+        [req.auth.id, qid, String(language).toLowerCase(), String(code), String(result.output || ''), score, finalStatus, result.status, result.executionTimeMs, result.compilerOutput || null]
       );
 
       if (stillUnlocked && correct) {
@@ -657,7 +663,7 @@ app.post('/api/submissions', requireRole('team'), async (req, res) => {
       }
       await conn2.commit();
     } catch (error) {
-      try { await conn2.rollback(); } catch {}
+      try { await conn2.rollback(); } catch { }
       throw error;
     } finally {
       conn2.release();
@@ -665,7 +671,7 @@ app.post('/api/submissions', requireRole('team'), async (req, res) => {
 
     const newOrder = correct ? nextOrderAfter(order) : order;
     res.json({
-      success:true,
+      success: true,
       correct,
       score,
       status: finalStatus,
@@ -678,7 +684,7 @@ app.post('/api/submissions', requireRole('team'), async (req, res) => {
       message: correct ? 'Correct answer! Next level unlocked.' : result.status === 'compile_error' ? 'Compilation failed.' : result.status === 'runtime_error' ? 'Runtime error.' : 'Wrong answer.'
     });
   } catch (error) {
-    try { await conn.rollback(); } catch {}
+    try { await conn.rollback(); } catch { }
     res.status(error.statusCode || 500).json({ error: error.message || 'Submission failed.' });
   } finally {
     conn.release();
@@ -690,13 +696,13 @@ app.post('/api/submissions', requireRole('team'), async (req, res) => {
 // ======================================================
 app.post('/api/violations', requireRole('team'), async (req, res) => {
   try {
-    const allowed=['copy_paste','right_click','tab_switch','window_blur','fullscreen_exit','minimize','window_change'];
-    const { violationType, reason='', details='' } = req.body;
-    if (!allowed.includes(violationType)) return res.status(400).json({ error:'Invalid violation.' });
-    await pool.execute(`INSERT INTO violations(team_id,reason,violation_type,details) VALUES(?,?,?,?)`, [req.auth.id,String(reason).slice(0,255),String(violationType),String(details)]);
-    res.json({ success:true, message:'Violation recorded.' });
+    const allowed = ['copy_paste', 'right_click', 'tab_switch', 'window_blur', 'fullscreen_exit', 'minimize', 'window_change'];
+    const { violationType, reason = '', details = '' } = req.body;
+    if (!allowed.includes(violationType)) return res.status(400).json({ error: 'Invalid violation.' });
+    await pool.execute(`INSERT INTO violations(team_id,reason,violation_type,details) VALUES(?,?,?,?)`, [req.auth.id, String(reason).slice(0, 255), String(violationType), String(details)]);
+    res.json({ success: true, message: 'Violation recorded.' });
   } catch (error) {
-    res.status(500).json({ error:'Unable to record violation.' });
+    res.status(500).json({ error: 'Unable to record violation.' });
   }
 });
 
