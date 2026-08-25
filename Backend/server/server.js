@@ -539,13 +539,14 @@ async function executeCode(language, code, input, runnerCode = '') {
 
     if (language === 'c') {
       const sourceFile = path.join(tempDir, 'main.c');
-      const binary = path.join(tempDir, 'main.out');
+      const binaryName = process.platform === 'win32' ? 'main.exe' : 'main.out';
+      const binary = path.join(tempDir, binaryName);
       await fs.promises.writeFile(sourceFile, source, 'utf8');
       const gccCmd = process.env.GCC_COMMAND || 'gcc';
       // Prepend mingw64/bin so gcc can find its runtime DLLs on Windows
       const gccExtraPath = process.env.GCC_EXTRA_PATH || (process.platform === 'win32' ? 'C:\\msys64\\mingw64\\bin' : '');
       const gccEnv = gccExtraPath ? { PATH: gccExtraPath + path.delimiter + (process.env.PATH || '') } : {};
-      const compile = await runProcess(gccCmd, ['-std=c11', '-O2', '-pipe', 'main.c', '-o', 'main.out'], '', tempDir, EXEC_TIMEOUT_MS, gccEnv);
+      const compile = await runProcess(gccCmd, ['-std=c11', '-pipe', 'main.c', '-o', binaryName], '', tempDir, EXEC_TIMEOUT_MS, gccEnv);
       if (compile.code !== 0 || compile.timedOut) {
         return { status: 'compile_error', output: '', compilerOutput: compile.stderr || 'Compilation failed.', executionTimeMs: Date.now() - started };
       }

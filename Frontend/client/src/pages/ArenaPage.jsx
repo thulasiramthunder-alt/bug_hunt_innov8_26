@@ -80,7 +80,7 @@ export default function ArenaPage() {
       if (mounted) toast.error(error?.message || 'Unable to load the unlocked problem.');
     });
     return () => { mounted = false; };
-  }, [team?.id, team?.selected_language, team?.assigned_set, team?.current_question_order]);
+  }, [team?.id, team?.selected_language, team?.assigned_set, team?.current_question_order, team?.status]);
 
   useEffect(() => {
     if (!started) return undefined;
@@ -98,11 +98,15 @@ export default function ArenaPage() {
 
   const startDebugging = async () => {
     try {
-      if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen().catch(err => {
+          console.warn("Fullscreen request failed or was rejected:", err);
+        });
+      }
       await api('/api/team/start', { method: 'POST' }, 'teamToken');
       setStarted(true);
       await loadTeam();
-      toast.success('Debugging session started in fullscreen.');
+      toast.success('Debugging session started.');
     } catch (error) {
       toast.error(error?.message || 'Fullscreen is required to start debugging.');
     }
@@ -222,19 +226,20 @@ export default function ArenaPage() {
               {question?.test_input && <details className="sample-input"><summary>INPUT PROVIDED TO YOUR PROGRAM</summary><pre>{question.test_input}</pre></details>}
             </div>
 
-            {question && <Editor
-              className="editor"
-              height="min(48vh, 520px)"
-              language={language === 'c' ? 'c' : language}
-              theme="vs-dark"
-              value={code}
-              onChange={(value) => setCode(value ?? '')}
-              options={{ minimap: { enabled: false }, fontSize: 14, automaticLayout: true, wordWrap: 'on', scrollBeyondLastLine: false }}
-            />}
+            {question && <div className="editor">
+              <Editor
+                height="100%"
+                language={language === 'c' ? 'c' : language}
+                theme="vs-dark"
+                value={code}
+                onChange={(value) => setCode(value ?? '')}
+                options={{ minimap: { enabled: false }, fontSize: 14, automaticLayout: true, wordWrap: 'on', scrollBeyondLastLine: false }}
+              />
+            </div>}
 
             <div className="console" ref={outputRef}>
               <div className="console-head"><span>JUDGE OUTPUT</span><span>{result?.compilationStatus || 'WAITING FOR SUBMISSION'}</span></div>
-              <pre className="judge-output">{result?.output || (result?.compilationStatus === 'compile_error' ? result.compilerOutput : '') || 'Submit the fixed program to compile, execute and score it.'}</pre>
+              <pre className="judge-output">{result?.output || result?.compilerOutput || 'Submit the fixed program to compile, execute and score it.'}</pre>
               {result && <div className={`result ${result.correct ? 'ok' : 'bad'}`}>
                 {result.correct ? `✓ ACCEPTED • +${result.score} POINT • ${result.currentLevel} UNLOCKED` : `✕ ${String(result.status || 'WRONG').toUpperCase()} • +0`}
               </div>}
