@@ -1,0 +1,76 @@
+# CODEMERCE compiler stack.
+#
+# IMPORTANT: job scratch root is /workspace/jobs on the container's WRITABLE
+# OVERLAY layer. It must NOT be mounted as a tmpfs: the docker daemon's
+# `docker cp` cannot write into container-internal tmpfs mounts and fails with
+#   "Could not find the file /tmp/jobs/<job-id> in container <name>"
+# The backend, the Dockerfiles and the `command:` below all agree on
+# /workspace/jobs so every container path is consistent and writable.
+#
+# `command:` guarantees /workspace/jobs exists at startup even when a running
+# container was created from an older image that did not bake the directory in.
+# ============================================================================
+
+services:
+  # ─── C / GCC 15 ─────────────────────────────────────────────────────────────
+  c-compiler:
+    build:
+      context: ./compiler/c
+    image: codemerce-c-compiler
+    container_name: c-compiler
+    restart: unless-stopped
+    init: true
+    command: ["sh", "-c", "mkdir -p /workspace/jobs && chmod 1777 /workspace/jobs && exec tail -f /dev/null"]
+    working_dir: /workspace
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: '0.50'
+    healthcheck:
+      test: ["CMD-SHELL", "test -d /workspace/jobs"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ─── Java / Eclipse Temurin JDK 21 ──────────────────────────────────────────
+  java-compiler:
+    build:
+      context: ./compiler/java
+    image: codemerce-java-compiler
+    container_name: java-compiler
+    restart: unless-stopped
+    init: true
+    command: ["sh", "-c", "mkdir -p /workspace/jobs && chmod 1777 /workspace/jobs && exec tail -f /dev/null"]
+    working_dir: /workspace
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    cpus: '0.50'
+    healthcheck:
+      test: ["CMD-SHELL", "test -d /workspace/jobs"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ─── Python 3.12 ────────────────────────────────────────────────────────────
+  python-compiler:
+    build:
+      context: ./compiler/python
+    image: codemerce-python-compiler
+    container_name: python-compiler
+    restart: unless-stopped
+    init: true
+    command: ["sh", "-c", "mkdir -p /workspace/jobs && chmod 1777 /workspace/jobs && exec tail -f /dev/null"]
+    working_dir: /workspace
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: '0.50'
+    healthcheck:
+      test: ["CMD-SHELL", "test -d /workspace/jobs"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

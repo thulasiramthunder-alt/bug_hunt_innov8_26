@@ -124,6 +124,8 @@ export default function ArenaPage() {
       if (data.correct) {
         toast.success('ACCEPTED +1 • NEXT LEVEL UNLOCKED');
         await loadTeam();
+      } else if (data.compilationStatus === 'infrastructure_error') {
+        toast.error('DOCKER UNAVAILABLE • Code execution service is down');
       } else if (data.compilationStatus === 'compile_error') {
         toast.error('COMPILATION ERROR • +0');
       } else if (data.compilationStatus === 'runtime_error') {
@@ -238,10 +240,10 @@ export default function ArenaPage() {
             </div>}
 
             <div className="console" ref={outputRef}>
-              <div className="console-head"><span>JUDGE OUTPUT</span><span>{result?.compilationStatus || 'WAITING FOR SUBMISSION'}</span></div>
+              <div className="console-head"><span>JUDGE OUTPUT</span><span>{result?.compilationStatus === 'infrastructure_error' ? 'DOCKER UNAVAILABLE' : (result?.compilationStatus || 'WAITING FOR SUBMISSION')}</span></div>
               <pre className="judge-output">{result?.output || result?.compilerOutput || 'Submit the fixed program to compile, execute and score it.'}</pre>
               {result && <div className={`result ${result.correct ? 'ok' : 'bad'}`}>
-                {result.correct ? `✓ ACCEPTED • +${result.score} POINT • ${result.currentLevel} UNLOCKED` : `✕ ${String(result.status || 'WRONG').toUpperCase()} • +0`}
+                {result.correct ? `✓ ACCEPTED • +${result.score} POINT • ${result.currentLevel} UNLOCKED` : result.compilationStatus === 'infrastructure_error' ? `✕ INFRASTRUCTURE ERROR • +0` : `✕ ${String(result.status || 'WRONG').toUpperCase()} • +0`}
               </div>}
             </div>
 
