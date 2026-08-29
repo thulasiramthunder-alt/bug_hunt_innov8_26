@@ -1169,20 +1169,13 @@ async function executeCode(language, code, input, runnerCode = '') {
       return { status: 'compiled', output: run.stdout, compilerOutput: run.stderr, executionTimeMs: Date.now() - started };
     }
 
-    if (language === 'java') {
-      const sourceFile = path.join(tempDir, 'Main.java');
-      await fs.promises.writeFile(sourceFile, source, 'utf8');
-      const javacCmd = process.env.JAVAC_COMMAND || 'javac';
-      const javaCmd = process.env.JAVA_COMMAND || 'java';
-      const compile = await runProcess(javacCmd, ['Main.java'], '', tempDir);
-      if (compile.code !== 0 || compile.timedOut) {
-        return { status: 'compile_error', output: '', compilerOutput: compile.stderr || 'Compilation failed.', executionTimeMs: Date.now() - started };
-      }
-      const run = await runProcess(javaCmd, ['-cp', tempDir, 'Main'], input, tempDir);
-      if (run.timedOut) return { status: 'runtime_error', output: run.stdout, compilerOutput: 'Execution timed out.', executionTimeMs: Date.now() - started };
-      if (run.code !== 0) return { status: 'runtime_error', output: run.stdout, compilerOutput: run.stderr, executionTimeMs: Date.now() - started };
-      return { status: 'compiled', output: run.stdout, compilerOutput: run.stderr, executionTimeMs: Date.now() - started };
-    }
+   if (language === 'java') {
+  return await executeJavaOnRailway(
+    source,
+    input,
+    runnerCode
+  );
+ }
 
     const sourceFile = path.join(tempDir, 'main.py');
     await fs.promises.writeFile(sourceFile, source, 'utf8');
