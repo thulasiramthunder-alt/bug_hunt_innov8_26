@@ -1,6 +1,7 @@
 FROM node:20
 
-RUN apt-get update && apt-get install -y openjdk-8-jdk
+RUN apt-get update && \
+    apt-get install -y openjdk-11-jdk
 
 WORKDIR /app
 
