@@ -998,6 +998,141 @@ async function executeCodeDocker(language, code, input, runnerCode = '') {
     }
   }
 }
+// ======================================================
+// JAVA COMPILER - RAILWAY
+// ======================================================
+
+async function executeJavaOnRailway(code, input, runnerCode = "") {
+  const baseUrl = String(
+    process.env.JAVA_COMPILER_URL || ""
+  ).replace(/\/+$/, "");
+
+  const apiKey =
+    process.env.JAVA_COMPILER_API_KEY || "";
+
+  const started = Date.now();
+
+  if (!baseUrl) {
+    return {
+      status: "infrastructure_error",
+      output: "",
+      compilerOutput:
+        "JAVA_COMPILER_URL is not configured.",
+      executionTimeMs: Date.now() - started
+    };
+  }
+
+  let source = String(code || "");
+
+  // Keep your existing Java runner wrapper.
+  if (
+    runnerCode &&
+    runnerCode.startsWith("__WRAP_JAVA__")
+  ) {
+    source = `class Main {\n${source}\n${runnerCode.replace(
+      "__WRAP_JAVA__",
+      ""
+    )}\n}\n`;
+  } else if (runnerCode) {
+    source += `\n\n${runnerCode}\n`;
+  }
+
+  try {
+    console.log(
+      "[Compiler] Sending Java code to Railway..."
+    );
+
+    const headers = {
+      "Content-Type": "application/json"
+    };
+
+    if (apiKey) {
+      headers["x-api-key"] = apiKey;
+    }
+
+    const response = await fetch(
+      `${baseUrl}/run`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          code: source,
+          input: String(input || ""),
+          timeout: EXEC_TIMEOUT_MS
+        })
+      }
+    );
+
+    const responseText =
+      await response.text();
+
+    let result;
+
+    try {
+      result = JSON.parse(responseText);
+    } catch (_) {
+      return {
+        status: "infrastructure_error",
+        output: "",
+        compilerOutput:
+          `Railway Java compiler returned invalid JSON: ${responseText.slice(
+            0,
+            500
+          )}`,
+        executionTimeMs: Date.now() - started
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        status: "infrastructure_error",
+        output: result.output || "",
+        compilerOutput:
+          result.compilerOutput ||
+          result.error ||
+          `Railway Java compiler returned HTTP ${response.status}`,
+        executionTimeMs: Date.now() - started
+      };
+    }
+
+    console.log(
+      "[Compiler] Railway Java result:",
+      {
+        status: result.status,
+        output: String(
+          result.output || ""
+        ).slice(0, 200),
+        compilerOutput: String(
+          result.compilerOutput || ""
+        ).slice(0, 200)
+      }
+    );
+
+    return {
+      status: result.status || "runtime_error",
+      output: result.output || "",
+      compilerOutput:
+        result.compilerOutput || "",
+      executionTimeMs:
+        Number(result.executionTimeMs) ||
+        Date.now() - started
+    };
+
+  } catch (error) {
+    console.error(
+      "[Compiler] Railway Java error:",
+      error
+    );
+
+    return {
+      status: "infrastructure_error",
+      output: "",
+      compilerOutput:
+        `Unable to contact Railway Java compiler: ${error.message}`,
+      executionTimeMs: Date.now() - started
+    };
+  }
+}
 async function executeCode(language, code, input, runnerCode = '') {
   process.env.JAVA_COMPILER_URL
   process.env.PYTHON_COMPILER_URL
