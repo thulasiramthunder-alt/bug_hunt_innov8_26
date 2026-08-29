@@ -1,7 +1,7 @@
 FROM node:20
 
 RUN apt-get update && apt-get install -y \
-    openjdk-21-jdk \
+    openjdk-17-jdk \
     python3 \
     gcc \
     g++
