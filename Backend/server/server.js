@@ -1001,11 +1001,12 @@ async function executeCodeDocker(language, code, input, runnerCode = '') {
 
 async function executeCode(language, code, input, runnerCode = '') {
   // Dispatch to Docker BEFORE creating a local tempDir (avoids leaked directories)
+  async function executeCode(language, code, input, runnerCode = '') {
   process.env.JAVA_COMPILER_URL
   process.env.PYTHON_COMPILER_URL
   process.env.C_COMPILER_URL
-  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'codemerce-'));
 
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'codemerce-'));
   const started = Date.now();
   try {
     let source = String(code || '');
